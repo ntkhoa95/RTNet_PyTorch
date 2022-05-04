@@ -34,8 +34,8 @@ parser.add_argument('--resize_w', type=int, default=640, help='target resizing w
 parser.add_argument('--model_name', type=str, default='RTFNet', help='chooosing model for training session')
 parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints', help='models are saved here')
 parser.add_argument('--num_epochs', type=int, default=400, help='number of epochs for training session')
-parser.add_argument('--batch_size', type=int, default=2, help='number of images in a loading batch')
-parser.add_argument('--learning_rate', type=float, default=0.01, help='initial learning rate')
+parser.add_argument('--batch_size', type=int, default=4, help='number of images in a loading batch')
+parser.add_argument('--learning_rate', type=float, default=0.001, help='initial learning rate')
 parser.add_argument('--gpu_ids', type=int, default=0, help='setting index of GPU for traing, "-1" for CPU')
 parser.add_argument('--num_workers', type=int, default=4, help='number of workers for loading data')
 parser.add_argument('--lr_decay', type=float, default=0.95, help='weight decay for adjusting learning rate')
@@ -43,7 +43,7 @@ parser.add_argument('--augmentation', type=bool, default=True, help='setting ran
 parser.add_argument('--save_every', type=int, default=50, help='save model every defined epochs')
 parser.add_argument('--visualization_flag', type=bool, default=True, help='setting flag for visualizing results during training session')
 
-parser.add_argument('--verbose', action='store_true', help='if specified, print loss while training')
+parser.add_argument('--verbose', type=bool, default=False, help='if specified, debugging size of each part of model')
 
 args = parser.parse_args()
 
@@ -85,15 +85,15 @@ def testing(epoch, model, test_loader):
                 visualise(image_names=names, predictions=logits.argmax(1), experiment_name=args.experiment_name, dataset_name='gmrpd', phase='test')
     
     # acc, acc_results = judge.pixel_acc()
-    precision, precision_results = judge.precision_per_class()
-    recall, recall_results = judge.recall_per_class()
-    miou, iou_results = judge.miou_per_class()
+    precision = judge.precision_per_class()
+    recall = judge.recall_per_class()
+    miou = judge.miou_per_class()
     return precision, recall, miou
 
 if __name__ == "__main__":
     torch.cuda.set_device(args.gpu_ids)
     judge = SegMetrics(num_classes=args.num_classes)
-    model = eval(args.model_name)(n_class=args.num_classes, num_resnet_layers=18)
+    model = eval(args.model_name)(n_class=args.num_classes, num_resnet_layers=18, verbose=args.verbose)
     print(model)
     if args.gpu_ids >= 0: model.cuda(args.gpu_ids)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=0.0005)
@@ -116,8 +116,6 @@ if __name__ == "__main__":
     os.makedirs(args.checkpoint_dir, exist_ok=True)
     experiment_ckpt_dir = os.path.join(args.checkpoint_dir, args.experiment_name)
     os.makedirs(experiment_ckpt_dir, exist_ok=True)
-    # if os.path.exists(experiment_ckpt_dir):
-    #     shutil.rmtree(os.path.join(experiment_ckpt_dir, "/"))
 
     os.chmod(experiment_ckpt_dir, stat.S_IRWXO)
 

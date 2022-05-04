@@ -4,9 +4,9 @@ import torch.nn as nn
 import torchvision.models as models
 
 class RTFNet(nn.Module):
-    def __init__(self, n_class, num_resnet_layers=50):
+    def __init__(self, n_class, num_resnet_layers=50, verbose=False):
         super(RTFNet, self).__init__()
-
+        self.verbose = verbose
         self.n_class = n_class
         self.num_resnet_layers = num_resnet_layers
 
@@ -90,9 +90,7 @@ class RTFNet(nn.Module):
         rgb = input[:, :3]
         depth = input[:, 3:]
 
-        verbose = False
-
-        if verbose:
+        if self.verbose:
             print("RGB input size: ", rgb.size())            # 480x640
             print("Depth input size: ", depth.size())        # 480x640
 
@@ -100,67 +98,67 @@ class RTFNet(nn.Module):
         ######################################################################################
 
         rgb = self.rgb_encoder_conv1(rgb)                              # Conv Layer
-        if verbose: print("RGB after Conv_1 size: ", rgb.size())       # 240x320
+        if self.verbose: print("RGB after Conv_1 size: ", rgb.size())       # 240x320
         rgb   = self.rgb_encoder_bn1(rgb)                              # BatchNorm Layer
-        if verbose: print("RGB after Conv_1 size: ", rgb.size())       # 240x320
+        if self.verbose: print("RGB after Conv_1 size: ", rgb.size())       # 240x320
         rgb  = self.rgb_encoder_relu(rgb)                              # ReLU Layer
-        if verbose: print("RGB after Conv_1 size: ", rgb.size())       # 240x320
+        if self.verbose: print("RGB after Conv_1 size: ", rgb.size())       # 240x320
 
         depth = self.depth_encoder_conv1(depth)                        # Conv Layer
-        if verbose: print("Depth after Conv_1 size: ", depth.size())   # 240x320
+        if self.verbose: print("Depth after Conv_1 size: ", depth.size())   # 240x320
         depth   = self.depth_encoder_bn1(depth)                        # BatchNorm Layer
-        if verbose: print("Depth after Conv_1 size: ", depth.size())   # 240x320
+        if self.verbose: print("Depth after Conv_1 size: ", depth.size())   # 240x320
         depth  = self.depth_encoder_relu(depth)                        # ReLU Layer
-        if verbose: print("Depth after Conv_1 size: ", depth.size())   # 240x320
+        if self.verbose: print("Depth after Conv_1 size: ", depth.size())   # 240x320
 
         ######################################################################################
 
         rgb = rgb + depth                                              # Fusion Layer 1
-        if verbose: print("RGB after 1st Fusion size: ", rgb.size())
+        if self.verbose: print("RGB after 1st Fusion size: ", rgb.size())
 
         rgb = self.rgb_encoder_maxpool(rgb)                            # Max Pooling Layer
-        if verbose: print("RGB after MaxPool size: ", rgb.size())      # 120x160
+        if self.verbose: print("RGB after MaxPool size: ", rgb.size())      # 120x160
 
         depth = self.depth_encoder_maxpool(depth)                      # Max Pooling Layer
-        if verbose: print("Depth after MaxPool size: ", depth.size())  # 120x160
+        if self.verbose: print("Depth after MaxPool size: ", depth.size())  # 120x160
 
         rgb = self.rgb_encoder_layer1(rgb)                             # Residual 1st
-        if verbose: print("RGB after 1st Residual size: ", rgb.size())
+        if self.verbose: print("RGB after 1st Residual size: ", rgb.size())
         depth = self.depth_encoder_layer1(depth)                       # Residual 1st
-        if verbose: print("Depth after 1st Residual size: ", depth.size())
+        if self.verbose: print("Depth after 1st Residual size: ", depth.size())
 
         ######################################################################################
         
         rgb = rgb + depth                                              # Fusion Layer 2
-        if verbose: print("RGB after Fusion in block 2 size: ", rgb.size())
+        if self.verbose: print("RGB after Fusion in block 2 size: ", rgb.size())
 
         rgb = self.rgb_encoder_layer2(rgb)                             # Residual 2nd
-        if verbose: print("RGB after 2nd Residual size: ", rgb.size())
+        if self.verbose: print("RGB after 2nd Residual size: ", rgb.size())
         depth = self.depth_encoder_layer2(depth)                       # Residual 2nd
-        if verbose: print("Depth after 2nd Residual size: ", depth.size())
+        if self.verbose: print("Depth after 2nd Residual size: ", depth.size())
 
         ######################################################################################
 
         rgb = rgb + depth                                              # Fusion Layer 3
-        if verbose: print("RGB after Fusion in block 3 size: ", rgb.size())
+        if self.verbose: print("RGB after Fusion in block 3 size: ", rgb.size())
 
         rgb = self.rgb_encoder_layer3(rgb)                             # Residual 3th
-        if verbose: print("RGB after Residual 3th size: ", rgb.size())
+        if self.verbose: print("RGB after Residual 3th size: ", rgb.size())
         depth = self.depth_encoder_layer3(depth)                       # Residual 3th
-        if verbose: print("Depth after Residual 3th size: ", depth.size())
+        if self.verbose: print("Depth after Residual 3th size: ", depth.size())
 
         ######################################################################################
 
         rgb = rgb + depth                                              # Fusion Layer 4
-        if verbose: print("RGB after Fusion in block 4 size: ", rgb.size())
+        if self.verbose: print("RGB after Fusion in block 4 size: ", rgb.size())
 
         rgb = self.rgb_encoder_layer4(rgb)                             # Residual 4th
-        if verbose: print("RGB after Residual 4th size: ", rgb.size())
+        if self.verbose: print("RGB after Residual 4th size: ", rgb.size())
         depth = self.depth_encoder_layer4(depth)                       # Residual 4th
-        if verbose: print("Depth after Residual 4th size: ", depth.size())
+        if self.verbose: print("Depth after Residual 4th size: ", depth.size())
 
         fusion = rgb + depth                                              # Fusion Layer Final
-        if verbose: print("RGB after final Fusion size: ", fusion.size())
+        if self.verbose: print("RGB after final Fusion size: ", fusion.size())
 
         ######################################################################################
         

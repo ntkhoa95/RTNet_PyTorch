@@ -104,9 +104,9 @@ class SegMetrics:
 
     def pixel_acc_per_class(self):
         acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
-        results = print_acc_per_class(acc)
+        print_acc_per_class(acc)
         acc = np.nanmean(acc)
-        return round(acc * 100, 2), results
+        return round(acc * 100, 2)
 
     def miou_per_class(self):
         miou = np.diag(self.confusion_matrix) / (
@@ -115,9 +115,9 @@ class SegMetrics:
                     np.diag(self.confusion_matrix)
         )
         # print mIoU of each class
-        results = print_iou_per_class(miou)
-        miou = np.nanmean(miou) 
-        return round(miou * 100, 2), results
+        print_iou_per_class(miou)
+        miou = np.nanmean(miou)
+        return round(miou * 100, 2)
 
     def fwiou_per_class(self):
         freq = np.sum(self.confusion_matrix, axis=1) / np.sum(self.confusion_matrix)
@@ -131,15 +131,15 @@ class SegMetrics:
     
     def precision_per_class(self):
         precision = np.diag(self.confusion_matrix) / np.sum(self.confusion_matrix, axis=0)
-        results = print_precision_per_class(precision)
+        print_precision_per_class(precision)
         precision = np.nanmean(precision)
-        return precision, results
+        return precision
 
     def recall_per_class(self):
         recall = np.diag(self.confusion_matrix) / np.sum(self.confusion_matrix, axis=1)
-        results = print_recall_per_class(recall)
+        print_recall_per_class(recall)
         recall = np.nanmean(recall)
-        return recall, results
+        return recall
 
     def _generate_matrix(self, pred, tgt):
         mask = (tgt >= 0) & (tgt < self.num_classes)
