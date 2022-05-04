@@ -23,8 +23,8 @@ from utils.util import visualise, SegMetrics
 warnings.filterwarnings('ignore')
 
 parser = argparse.ArgumentParser(description='Training with PyTorch')
-parser.add_argument('--experiment_name', type=str, default='gmrpd_manual')
 parser.add_argument('--dataset', type=str, default='gmrpd', help='choosing dataset for training session')
+parser.add_argument('--experiment_name', type=str, default='gmrpd_manual')
 parser.add_argument('--num_classes', type=int, default=3, help='number of classes in selected dataset')
 parser.add_argument('--using_class_weights', type=bool, default=True, help='flag for using class weights for training')
 parser.add_argument('--dataroot', type=str, default='/media/asr/Data/IVAM_Lab/Master_Thesis/FuseNet/gmrpd_ds_4', help='directory of the loading data')
