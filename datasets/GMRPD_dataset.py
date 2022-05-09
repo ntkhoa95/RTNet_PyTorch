@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 from torch.utils.data.dataset import Dataset
 from utils.augmentation import *
+import matplotlib.pyplot as plt
 
 class GMRPD_dataset(Dataset):
     def __init__(self, data_path, phase, resize_h=480, resize_w=640, transform=True, experiment_name="manual"):
@@ -38,7 +39,8 @@ class GMRPD_dataset(Dataset):
         depth = np.array(Image.open(os.path.join(self.data_path, self.phase, "depth_u8", image_name)))
         depth = depth[:, :, np.newaxis]
 
-        input_image = np.concatenate((rgb, depth), axis=2) # concatenate channels
+        # input_image = np.concatenate((rgb, depth), axis=2) # concatenate channels
+        input_image = np.dstack((rgb, depth))
 
         if self.experiment_name.endswith("manual"):
             label = np.array(Image.open(os.path.join(self.data_path, self.phase, "label", image_name)))

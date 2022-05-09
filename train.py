@@ -1,12 +1,10 @@
 import argparse
-import shutil, stat
+import stat
 import os, torch
 from cv2 import transpose
 from jittor import Var
 import numpy as np
-from torchaudio import datasets
 from tqdm import tqdm
-from jinja2 import utils
 
 import torch.nn.functional as F
 import torchvision.utils as tutils
@@ -19,7 +17,7 @@ from models import RTFNet
 
 import warnings
 
-from utils.util import visualise, SegMetrics
+from utils.util import compute_results, visualise, SegMetrics
 warnings.filterwarnings('ignore')
 
 parser = argparse.ArgumentParser(description='Training with PyTorch')
@@ -57,8 +55,14 @@ def train(epoch, model, train_loader, optimizer):
         loss = F.cross_entropy(logits, labels, weight=class_weights)
         loss.backward()
         optimizer.step()
+
         if args.visualization_flag:
-            visualise(image_names=names, predictions=logits.argmax(1), experiment_name=args.experiment_name, dataset_name='gmrpd', phase='train')
+            visualise(image_names=names, imgs=imgs, labels=labels, predictions=logits.argmax(1), \
+                        experiment_name=args.experiment_name, dataset_name='gmrpd', phase='train')
+
+        if acc_iter['train'] % 1 == 0:
+            writer.add_scalar("Train/loss", loss, acc_iter['train'])
+        acc_iter['train'] += 1
 
 def validation(epoch, model, val_loader):
     model.eval()
@@ -69,21 +73,55 @@ def validation(epoch, model, val_loader):
             logits = model(imgs)
             loss = F.cross_entropy(logits, labels)
             if args.visualization_flag:
-                visualise(image_names=names, predictions=logits.argmax(1), experiment_name=args.experiment_name, dataset_name='gmrpd', phase='val')
+                visualise(image_names=names, imgs=imgs, labels=labels, predictions=logits.argmax(1), experiment_name=args.experiment_name, dataset_name='gmrpd', phase='val')
+            if acc_iter['val'] % 1 == 0:
+                writer.add_scalar('Validation/loss', loss, acc_iter['val'])
+            acc_iter['val'] += 1
 
 def testing(epoch, model, test_loader):
     model.eval()
+    judge = SegMetrics(num_classes=args.num_classes)
+    conf_mat = np.zeros((args.num_classes, args.num_classes))
+    if args.dataset == 'gmrpd':
+        label_list = ['Unknown', 'Drivable Area', 'Road Anomalies']
+    else:
+        label_list = [f'label_{i}' for i in range(args.num_classes)]
+    testing_output_file = os.path.join(experiment_ckpt_dir, 'testing_output.txt')
     with torch.no_grad():
         for it, (imgs, labels, names) in tqdm(enumerate(test_loader)):
             imgs = Variable(imgs).cuda(args.gpu_ids)
             labels = Variable(labels).cuda(args.gpu_ids)
             logits = model(imgs)
-            labels = labels.cpu().numpy().squeeze().flatten()
+            labels_numpy = labels.cpu().numpy().squeeze().flatten()
             preds  = logits.argmax(1).cpu().numpy().squeeze().flatten()
-            judge.add_batch(preds, labels)
+            conf = confusion_matrix(y_true=labels_numpy, y_pred=preds, labels=list(range(args.num_classes)))
+            conf_mat += conf
+            judge.add_batch(preds, labels_numpy)
             if args.visualization_flag:
-                visualise(image_names=names, predictions=logits.argmax(1), experiment_name=args.experiment_name, dataset_name='gmrpd', phase='test')
+                visualise(image_names=names, imgs=imgs, labels=labels, predictions=logits.argmax(1), experiment_name=args.experiment_name, dataset_name='gmrpd', phase='test')
     
+    # Compute confusion matrix
+    pre, rec, iou = compute_results(conf_mat)
+    writer.add_scalar('Test/Average_Precision', pre.mean(), epoch)
+    writer.add_scalar('Test/Average_Recall', rec.mean(), epoch)
+    writer.add_scalar('Test/Average_IoU', iou.mean(), epoch)
+    for i in range(len(pre)):
+        writer.add_scalar('Test(class)/Precision_Class_%s' % label_list[i], pre[i], epoch)
+        writer.add_scalar('Test(class)/Recall_Class_%s' % label_list[i], rec[i], epoch)
+        writer.add_scalar('Test(class)/IoU_Class_%s' % label_list[i], iou[i], epoch)
+    
+    if epoch == 0:
+        with open(testing_output_file, 'w') as file:
+            file.write("Number Of Training: %s, Initial Learning Rate: %s, Batch Size: %s \n" % (args.num_epochs, args.learning_rate, args.batch_size))
+            file.write("Number of Classes: %s" %args.num_classes)
+    
+    with open(testing_output_file, 'a') as file:
+        file.write(f"\n # Tesing Epoch Num: {epoch} \n")
+        for i in range(args.num_classes):
+            file.write("%s : Precision: %0.4f, Recall: %0.4f, IoU: %0.4f \n" % (label_list[i], 100*pre[i], 100*rec[i], 100*iou[i]))
+        file.write("Mean Precision: %0.4f, Mean Recall: %0.4f, Mean IoU: %0.4f \n" % (100*np.nanmean(pre), 100*np.nanmean(rec), 100*np.nanmean(iou)))
+        file.write("-" * 70)
+
     # acc, acc_results = judge.pixel_acc()
     precision = judge.precision_per_class()
     recall = judge.recall_per_class()
@@ -92,7 +130,7 @@ def testing(epoch, model, test_loader):
 
 if __name__ == "__main__":
     torch.cuda.set_device(args.gpu_ids)
-    judge = SegMetrics(num_classes=args.num_classes)
+    
     model = eval(args.model_name)(n_class=args.num_classes, num_resnet_layers=18, verbose=args.verbose)
     print(model)
     if args.gpu_ids >= 0: model.cuda(args.gpu_ids)
@@ -116,8 +154,15 @@ if __name__ == "__main__":
     os.makedirs(args.checkpoint_dir, exist_ok=True)
     experiment_ckpt_dir = os.path.join(args.checkpoint_dir, args.experiment_name)
     os.makedirs(experiment_ckpt_dir, exist_ok=True)
-
     os.chmod(experiment_ckpt_dir, stat.S_IRWXO)
+
+    # Creating writter to save training logs
+    writer = SummaryWriter(f"{experiment_ckpt_dir}/tensorboard_log")
+    os.chmod(f"{experiment_ckpt_dir}/tensorboard_log", stat.S_IRWXO)
+
+    print("Experiment name: ", args.experiment_name)
+    print("Training on GPU: ", args.gpu_ids)
+    print("Training log saved to: ", experiment_ckpt_dir)
 
     # Setting datasets
     train_dataset = GMRPD_dataset(data_path=args.dataroot, phase='train', transform=True, experiment_name=args.experiment_name)
@@ -145,7 +190,7 @@ if __name__ == "__main__":
 
     best_precision = 0
     best_miou = 0
-
+    acc_iter = {"train": 0, "val": 0}
     for epoch in range(1, args.num_epochs+1):
         print(f"\nTraining {args.model_name} | Epoch {epoch}/{args.num_epochs}")
         train(epoch, model, train_loader, optimizer)
@@ -154,7 +199,7 @@ if __name__ == "__main__":
         print('Saving latest checkpoint model!')
         torch.save(model.state_dict(), checkpoint_model_file)
 
-        if epoch % args.save_every:
+        if epoch % args.save_every == 0:
             checkpoint_model_file = os.path.join(experiment_ckpt_dir, str(epoch)+'_model.pth')
             print('Saving checkpoint model!')
             torch.save(model.state_dict(), checkpoint_model_file)

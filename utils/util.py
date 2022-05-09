@@ -1,7 +1,7 @@
-from re import L
 import numpy as np
 from PIL import Image
 import os
+from torchvision.utils import save_image, make_grid
 
 def get_palette(dataset="gmrpd"):
     """Visualizing segmentation results in colormap"""
@@ -48,24 +48,59 @@ def get_palette(dataset="gmrpd"):
                                             bus, train, motorcycle, bicycle]).tolist()
     return palette
 
-def visualise(image_names, predictions, experiment_name, dataset_name="gmrpd", phase='train'):
+def visualise(image_names, imgs, labels, predictions, experiment_name, dataset_name="gmrpd", phase='train'):
+    # print(imgs.shape, labels.shape, predictions.shape)
     palette = get_palette(dataset=dataset_name)
     os.makedirs(f'./checkpoints/{experiment_name}/visualization/{phase}', exist_ok=True)
     if phase == 'train':
-        pred = predictions[-1].cpu().numpy()
-        img  = np.zeros((pred.shape[0], pred.shape[1], 3), dtype=np.uint8)
+        img_name = image_names[-1].split(".")[0]
+
+        input_rgb   = imgs[-1].cpu().numpy()[:3, :, :].transpose(1, 2, 0) * 255
+        input_depth = imgs[-1].cpu().numpy()[3, :, :] * 255
+
+        input_rgb = Image.fromarray(np.uint8(input_rgb))
+        input_rgb.save((f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_rgb.png'))
+        input_depth = Image.fromarray(np.uint8(input_depth))
+        input_depth.save((f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_depth.png'))
+
+        input_label = labels[-1].cpu().numpy()
+        label_img   = np.zeros((input_label.shape[0], input_label.shape[1], 3), dtype=np.uint8)
         for cid in range(len(palette)):
-            img[pred == cid] = palette[cid]
-        img = Image.fromarray(np.uint8(img))
-        img.save(f'./checkpoints/{experiment_name}/visualization/{phase}/{image_names[-1]}')
+            label_img[input_label == cid] = palette[cid]
+        label_img = Image.fromarray(np.uint8(label_img))
+        label_img.save(f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_label.png')
+
+        pred = predictions[-1].cpu().numpy()
+        pred_img  = np.zeros((pred.shape[0], pred.shape[1], 3), dtype=np.uint8)
+        for cid in range(len(palette)):
+            pred_img[pred == cid] = palette[cid]
+        pred_img = Image.fromarray(np.uint8(pred_img))
+        pred_img.save(f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_pred.png')
     else:
         for (idx, pred) in enumerate(predictions):
-            pred = predictions[idx].cpu().numpy()
-            img  = np.zeros((pred.shape[0], pred.shape[1], 3), dtype=np.uint8)
+            img_name = image_names[idx].split(".")[0]
+
+            input_rgb   = imgs[idx].cpu().numpy()[:3, :, :].transpose(1, 2, 0) * 255
+            input_depth = imgs[idx].cpu().numpy()[3, :, :] * 255
+
+            input_rgb = Image.fromarray(np.uint8(input_rgb))
+            input_rgb.save((f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_rgb.png'))
+            input_depth = Image.fromarray(np.uint8(input_depth))
+            input_depth.save((f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_depth.png'))
+
+            input_label = labels[idx].cpu().numpy()
+            label_img   = np.zeros((input_label.shape[0], input_label.shape[1], 3), dtype=np.uint8)
             for cid in range(len(palette)):
-                img[pred == cid] = palette[cid]
-            img = Image.fromarray(np.uint8(img))
-            img.save(f'./checkpoints/{experiment_name}/visualization/{phase}/{image_names[idx]}')
+                label_img[input_label == cid] = palette[cid]
+            label_img = Image.fromarray(np.uint8(label_img))
+            label_img.save(f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_label.png')
+
+            pred = predictions[idx].cpu().numpy()
+            pred_img  = np.zeros((pred.shape[0], pred.shape[1], 3), dtype=np.uint8)
+            for cid in range(len(palette)):
+                pred_img[pred == cid] = palette[cid]
+            pred_img = Image.fromarray(np.uint8(pred_img))
+            pred_img.save(f'./checkpoints/{experiment_name}/visualization/{phase}/{img_name}_pred.png')
 
 def compute_results(conf_total, ignore_void=False):
     n_class = conf_total.shape[0]
