@@ -1,6 +1,6 @@
 import numpy as np
 from PIL import Image
-import os
+import os, torch
 from torchvision.utils import save_image, make_grid
 
 def get_palette(dataset="gmrpd"):
@@ -342,3 +342,40 @@ def print_recall_per_class(recall):
         print('bicycle      : {:.6f}'.format(recall[18] * 100.), '%\t')
         if len(recall) == 20:
             print('small obstacles: {:.6f}'.format(recall[19] * 100.), '%\t')
+
+
+# helper loading function that can be used by subclasses
+def load_network(network, loading_epoch, save_dir=''):
+    save_filename = '%s_model.pth' % (loading_epoch)
+    save_path = os.path.join(save_dir, save_filename)        
+    if not os.path.isfile(save_path):
+        print('%s not exists yet!' % save_path)
+    else:
+        #network.load_state_dict(torch.load(save_path))
+        try:
+            # print torch.load(save_path).keys()
+            # print network.state_dict()['Scale.features.conv2_1_depthconvweight']
+            network.load_state_dict(torch.load(save_path))
+        except:   
+            pretrained_dict = torch.load(save_path)                
+            model_dict = network.state_dict()
+            try:
+                pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}                    
+                network.load_state_dict(pretrained_dict)
+                print('Pretrained network has excessive layers; Only loading layers that are used' )
+            except:
+                print('Pretrained network has fewer layers; The following are not initialized:' )
+                # from sets import Set
+                # not_initialized = Set()
+                for k, v in pretrained_dict.items():                      
+                    if v.size() == model_dict[k].size():
+                        model_dict[k] = v
+                not_initialized=[]
+                # print(pretrained_dict.keys())
+                # print(model_dict.keys())
+                for k, v in model_dict.items():
+                    if k not in pretrained_dict or v.size() != pretrained_dict[k].size():
+                        not_initialized+=[k]#[k.split('.')[0]]
+                print(sorted(not_initialized))
+                network.load_state_dict(model_dict)
+    return network

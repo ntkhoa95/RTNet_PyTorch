@@ -1,13 +1,9 @@
-import argparse
-import stat
 import os, torch
-from cv2 import transpose
-from jittor import Var
 import numpy as np
+import stat, argparse
 from tqdm import tqdm
 
 import torch.nn.functional as F
-import torchvision.utils as tutils
 from torch.autograd import Variable
 from datasets.GMRPD_dataset import *
 from torch.utils.data import DataLoader
@@ -195,7 +191,7 @@ if __name__ == "__main__":
         print(f"\nTraining {args.model_name} | Epoch {epoch}/{args.num_epochs}")
         train(epoch, model, train_loader, optimizer)
         validation(epoch, model, val_loader)
-        checkpoint_model_file = os.path.join(experiment_ckpt_dir, 'latest_epoch_model.pth')
+        checkpoint_model_file = os.path.join(experiment_ckpt_dir, 'latest_model.pth')
         print('Saving latest checkpoint model!')
         torch.save(model.state_dict(), checkpoint_model_file)
 
@@ -211,14 +207,14 @@ if __name__ == "__main__":
             best_miou = miou
             checkpoint_pre_model_file = os.path.join(experiment_ckpt_dir, 'best_precision_model.pth')
             torch.save(model.state_dict(), checkpoint_pre_model_file)
-            checkpoint_miou_model_file = os.path.join(experiment_ckpt_dir, 'best_precision_model.pth')
+            checkpoint_miou_model_file = os.path.join(experiment_ckpt_dir, 'best_iou_model.pth')
             torch.save(model.state_dict(), checkpoint_miou_model_file)
         else:
             if precision > best_precision:
                 checkpoint_pre_model_file = os.path.join(experiment_ckpt_dir, 'best_precision_model.pth')
                 torch.save(model.state_dict(), checkpoint_pre_model_file)
             if miou > best_miou:
-                checkpoint_miou_model_file = os.path.join(experiment_ckpt_dir, 'best_precision_model.pth')
+                checkpoint_miou_model_file = os.path.join(experiment_ckpt_dir, 'best_iou_model.pth')
                 torch.save(model.state_dict(), checkpoint_miou_model_file)
         scheduler.step()
 
