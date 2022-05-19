@@ -52,7 +52,7 @@ def visualise(image_names, imgs, labels, predictions, experiment_name, dataset_n
     # print(imgs.shape, labels.shape, predictions.shape)
     palette = get_palette(dataset=dataset_name)
     os.makedirs(f'./checkpoints/{experiment_name}/visualization/{phase}', exist_ok=True)
-    if phase == 'train':
+    if phase == 'training':
         img_name = image_names[-1].split(".")[0]
 
         input_rgb   = imgs[-1].cpu().numpy()[:3, :, :].transpose(1, 2, 0) * 255
@@ -355,9 +355,9 @@ def load_network(network, loading_epoch, save_dir=''):
         try:
             # print torch.load(save_path).keys()
             # print network.state_dict()['Scale.features.conv2_1_depthconvweight']
-            network.load_state_dict(torch.load(save_path))
+            network.load_state_dict(torch.load(save_path, map_location='cuda:0'))
         except:   
-            pretrained_dict = torch.load(save_path)                
+            pretrained_dict = torch.load(save_path, map_location='cuda:0')               
             model_dict = network.state_dict()
             try:
                 pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}                    
